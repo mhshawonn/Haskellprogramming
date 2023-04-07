@@ -1,0 +1,74 @@
+data Expr
+  = Var String
+  | Lam String Expr
+  | App Expr Expr
+  | Fix Expr
+  | Pair Expr Expr
+  | Nat Integer
+  | Nil
+  | Cons Expr Expr
+  | Case Expr Expr String String Expr
+  deriving (Show, Eq)
+
+data Type
+  = TVar String
+  | TArr Type Type
+  | TPair Type Type
+  | TNat
+  | TList Type
+  deriving (Show, Eq)
+
+type Ctx = [(String, Type)]
+
+typeError :: String -> a
+typeError msg = error $ "Type error: " ++ msg
+
+fresh :: Ctx -> String -> String
+fresh ctx x
+  | x `elem` map fst ctx = fresh ctx (x ++ "'")
+  | otherwise = x
+
+infer :: Ctx -> Expr -> Type
+infer ctx (Var x) = case lookup x ctx of
+  Just t -> t
+  Nothing -> typeError $ "Undefined variable: " ++ x
+infer ctx (Lam x e) = let
+  x' = fresh ctx x
+  t1 = TVar x'
+  t2 = infer ((x, t1) : ctx) e
+  in TArr t1 t2
+infer ctx (App e1 e2) = let
+  t1 = infer ctx e1
+  t2 = infer ctx e2
+  x = fresh ctx "x"
+  in case t1 of
+    TArr t11 t12
+      | t11 == t2 -> t12
+      | otherwise -> typeError "Type mismatch in function application"
+    _ -> typeError "Function type expected in function application"
+infer ctx (Fix e) = let
+  t = infer ctx e
+  in case t of
+    TArr t1 t2
+      | t1 == t2 -> t1
+      | otherwise -> typeError "Type mismatch in fixed point expression"
+    _ -> typeError "Function type expected in fixed point expression"
+infer ctx (Pair e1 e2) = let
+  t1 = infer ctx e1
+  t2 = infer ctx e2
+  in TPair t1 t2
+infer ctx (Nat _) = TNat
+infer ctx Nil = TList (TVar "a")
+infer ctx (Cons e1 e2) = let
+  t1 = infer ctx e1
+  t2 = infer ctx e2
+  in case t2 of
+    TList t -> if t1 == t then t2 else typeError "Type mismatch in list construction"
+    _ -> typeError "List type expected in list construction"
+infer ctx (Case e e1 x1 x2 e2) = let
+  t = infer ctx e
+  t1 = infer ctx e1
+  ctx' = (x1, t1) : ctx
+  t2 = infer ctx' e2
+  ctx'' = (x2, TList t1) : ctx'
+  in if t == TNat && t1 == t2 then t1 else typeError "Type mismatch in case expression"
