@@ -1,0 +1,17 @@
+{-# LANGUAGE TypeApplications #-}
+
+import Linear.V2
+
+-- Define a linear function that operates on two 2D vectors
+linearFn :: V2 Double -> V2 Double -> Double
+linearFn v1 v2 = dot v1 v2 + norm v1
+
+-- Define some sample input vectors
+v1 = V2 1.0 2.0
+v2 = V2 3.0 4.0
+
+-- Compute the output of the linear function on the input vectors
+output = linearFn v1 v2
+
+main :: IO ()
+main = putStrLn ("The output of the linear function is: " ++ show output)
